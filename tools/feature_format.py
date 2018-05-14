@@ -1,8 +1,8 @@
 #!/usr/bin/python
 
-""" 
+"""
     A general tool for converting data from the
-    dictionary format to an (n x k) python list that's 
+    dictionary format to an (n x k) python list that's
     ready for training an sklearn algorithm
 
     n--no. of key-value pairs in dictonary
@@ -13,7 +13,7 @@
         key-value pair in the dict is the name
         of a feature, and its value for that person
 
-    In addition to converting a dictionary to a numpy 
+    In addition to converting a dictionary to a numpy
     array, you may want to separate the labels from the
     features--this is what targetFeatureSplit is for
 
@@ -21,7 +21,7 @@
     and the features you want to use are the person's
     salary and bonus, here's what you would do:
 
-    feature_list = ["poi", "salary", "bonus"] 
+    feature_list = ["poi", "salary", "bonus"]
     data_array = featureFormat( data_dictionary, feature_list )
     label, features = targetFeatureSplit(data_array)
 
@@ -81,21 +81,21 @@ def featureFormat( dictionary, features, remove_NaN=True, remove_all_zeroes=True
             test_list = tmp_list[1:]
         else:
             test_list = tmp_list
-        ### if all features are zero and you want to remove
-        ### data points that are all zero, do that here
+        # if all features are zero and you want to remove
+        # data points that are all zero, do that here
         if remove_all_zeroes:
             append = False
             for item in test_list:
                 if item != 0 and item != "NaN":
                     append = True
                     break
-        ### if any features for a given data point are zero
-        ### and you want to remove data points with any zeroes,
-        ### handle that here
+        # if any features for a given data point are zero
+        # and you want to remove data points with any zeroes,
+        # handle that here
         if remove_any_zeroes:
             if 0 in test_list or "NaN" in test_list:
                 append = False
-        ### Append the data point if flagged for addition.
+        # Append the data point if flagged for addition.
         if append:
             return_list.append( np.array(tmp_list) )
 
@@ -103,15 +103,15 @@ def featureFormat( dictionary, features, remove_NaN=True, remove_all_zeroes=True
 
 
 def targetFeatureSplit( data ):
-    """ 
+    """
         given a numpy array like the one returned from
         featureFormat, separate out the first feature
-        and put it into its own list (this should be the 
+        and put it into its own list (this should be the
         quantity you want to predict)
 
         return targets and features as separate lists
 
-        (sklearn can generally handle both lists and numpy arrays as 
+        (sklearn can generally handle both lists and numpy arrays as
         input formats when training/predicting)
     """
 

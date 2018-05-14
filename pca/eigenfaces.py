@@ -66,7 +66,7 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random
 ###############################################################################
 # Compute a PCA (eigenfaces) on the face dataset (treated as unlabeled
 # dataset): unsupervised feature extraction / dimensionality reduction
-n_components = 150
+n_components = 200
 
 print "Extracting the top %d eigenfaces from %d faces" % (n_components, X_train.shape[0])
 t0 = time()
@@ -111,6 +111,11 @@ print classification_report(y_test, y_pred, target_names=target_names)
 print confusion_matrix(y_test, y_pred, labels=range(n_classes))
 
 
+print(pca.explained_variance_ratio_[0])
+print(pca.explained_variance_ratio_[1])
+
+print(pca.components_[0])
+print(pca.components_[1])
 ###############################################################################
 # Qualitative evaluation of the predictions using matplotlib
 
