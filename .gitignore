@@ -12,3 +12,4 @@ my_feature_list.pkl
 *.iml
 venv/
 *.tar.gz
+.DS_Store
