@@ -5,17 +5,12 @@ from __future__ import division
 import pickle
 import sys
 
+from sklearn import preprocessing
+
 sys.path.append("../tools/")
 
 from feature_format import featureFormat, targetFeatureSplit
 from tester import dump_classifier_and_data
-from sklearn.svm import SVC
-from sklearn.ensemble import RandomForestClassifier
-from sklearn import tree
-from sklearn.cross_validation import train_test_split
-from sklearn.metrics import classification_report
-from sklearn.cross_validation import cross_val_score
-# from sklearn.model_selection import GridSearchCV
 
 # Task 1: Select what features you'll use.
 # features_list is a list of strings, each of which is a feature name.
@@ -27,19 +22,12 @@ from sklearn.cross_validation import cross_val_score
 #                  'deferred_income', 'long_term_incentive',
 #                  'from_poi_to_this_person']
 
-features_list = ['poi',
-                 'salary',
-                 'total_payments',
-                 'bonus',
-                 'restricted_stock',
-                 'total_stock_value',
-                 'expenses',
-                 'other',
-                 'long_term_incentive',
-                 'shared_receipt_with_poi',
-                 'from_poi_ratio',
-                 'to_poi_ratio'
-                 ]
+features_list = ['poi', 'salary', 'total_payments', 'exercised_stock_options', 'bonus',
+                 'restricted_stock', 'total_stock_value', 'expenses', 'other', 'deferred_income',
+                 'long_term_incentive', 'shared_receipt_with_poi',
+                 'from_messages', 'to_messages', 'from_this_person_to_poi',
+                 'from_poi_to_this_person',
+                 'from_poi_ratio', 'to_poi_ratio']
 
 # Load the dictionary containing the dataset
 with open("final_project_dataset.pkl", "r") as data_file:
@@ -52,7 +40,7 @@ data_dict.pop('TOTAL')
 # Store to my_dataset for easy export below.
 my_dataset = {}
 poi_dict = {}
-scale_factor = 1
+scale_factor = 100000
 
 for key, val in data_dict.iteritems():
     if val['total_payments'] > 100000000 and val['total_payments'] != 'NaN':
@@ -83,6 +71,9 @@ for key, val in data_dict.iteritems():
     my_dataset[key] = val
 
 # Extract features and labels from dataset for local testing
+poi_data = featureFormat(poi_dict, features_list, sort_keys=True)
+poi_labels, poi_features = targetFeatureSplit(poi_data)
+
 data = featureFormat(my_dataset, features_list, sort_keys=True)
 labels, features = targetFeatureSplit(data)
 
@@ -94,6 +85,12 @@ labels, features = targetFeatureSplit(data)
 
 # Provided to give you a starting point. Try a variety of classifiers.
 
+from sklearn.pipeline import Pipeline
+from sklearn.svm import SVC
+from sklearn.decomposition import PCA
+
+# clf = GaussianNB()
+
 # Task 5: Tune your classifier to achieve better than .3 precision and recall
 # using our testing script. Check the tester.py script in the final project
 # folder for details on the evaluation method, especially the test_classifier
@@ -102,40 +99,71 @@ labels, features = targetFeatureSplit(data)
 # http://scikit-learn.org/stable/modules/generated/sklearn.cross_validation.StratifiedShuffleSplit.html
 
 # Example starting point. Try investigating other evaluation techniques!
+from sklearn.cross_validation import train_test_split
+from sklearn.model_selection import GridSearchCV
+
 features_train, features_test, labels_train, labels_test = \
-    train_test_split(features, labels, test_size=0.1)
+    train_test_split(features, labels, test_size=0.3)
 
-# scaler = preprocessing.MinMaxScaler()
-# features_train = scaler.fit_transform(features_train)
+features_train.extend(poi_features)
+labels_train.extend(poi_labels)
 
-clf_s = SVC(kernel='sigmoid')
-clf_s.fit(features_train, labels_train)
-predict_r = clf_s.predict(features_test)
-print("SVC")
-print(classification_report(labels_test, predict_r))
+scaler = preprocessing.MinMaxScaler()
+features_train = scaler.fit_transform(features_train)
 
-clf_r = RandomForestClassifier(max_depth=7, random_state=0, oob_score=True)
+# Need to get this working
+# features_train = preprocessing.MaxAbsScaler(features_train).fit(features_train, labels_train)
+# features_test = preprocessing.MaxAbsScaler(features_train)
+
+# Takes forever
+# normalizer = preprocessing.Normalizer().fit(features_train)
+# features_train = normalizer.transform(features_train)
+
+# pca.fit(features_train)
+# n_components = [2, 6, 12]
+# kernel = [['rbf']]
+# class_weight = [['balanced']]
+pca = PCA()
+clf = SVC()
+estimators = [('reduce_dim', pca), ('clf', clf)]
+scores = ['precision', 'recall']
+pipe = Pipeline(estimators)
+# pipe.set_params(clf__C=[0.1, 10, 100])
+# pipe.set_params(reduce_dim__n_components=[2, 5, 10])
+# param_grid = dict(reduce_dim__n_components=[2, 5, 10],
+#                   clf__C=[0.1, 10, 100])
+# clf__C = [1e3, 5e3, 1e4, 5e4, 1e5]
+# clf__kernel = ['linear', 'poly','rbf', 'sigmoid']
+param_grid = dict(clf__kernel=['sigmoid', 'rbf'],
+                  clf__C=[0.001, 0.1, 1, 10, 100, 1000, 10000, 1e3, 5e3, 1e4, 5e4, 1e5],
+                  clf__gamma=[0.0001, 0.0005, 0.001, 0.005, 0.01, 0.1],
+                  reduce_dim__n_components=[1, 2, 4, 6, 8, 10, 12, 13])
+
+param_grid = dict(clf__kernel=['sigmoid'],
+                  clf__C=[0.1],
+                  clf__gamma=[0.0001],
+                  reduce_dim__n_components=[14])
+
+# scoring='%s_macro' % scores[1],
+grid_search = GridSearchCV(pipe, param_grid=param_grid, refit=True, cv=10)
+grid_search.fit(features_train, labels_train)
+labels_predict = grid_search.predict(features_test)
+
+
+
+from sklearn.ensemble import RandomForestClassifier
+clf_r = RandomForestClassifier(max_depth=6, random_state=0)
 clf_r.fit(features_train, labels_train)
-predict_r = clf_r.predict(features_test)
-print("Random Forest")
-print(classification_report(labels_test, predict_r))
+labels_predict_r = clf_r.predict(features_test)
 
-clf_d = tree.DecisionTreeClassifier()
-clf_d.fit(features_train, labels_train)
-predict_d = clf_d.predict(features_test)
-print("Decision Tree Classifier")
-print(classification_report(labels_test, predict_d))
-print(cross_val_score(estimator=clf_d, X=features_train, y=labels_train, cv=7, n_jobs=4))
 
-# parameters = {'max_depth':range(3, 20)}
-# clf_d = GridSearchCV(tree.DecisionTreeClassifier(), parameters, n_jobs=4)
-# clf_d.fit(X=features_train, y=labels_train)
-# clf_d_est = clf_d.best_estimator_
-# print (clf_d.best_score_, clf_d.best_params_)
-
+from sklearn.metrics import classification_report
+print('PCA and SVC', classification_report(labels_test, labels_predict))
+print('Random Forest', classification_report(labels_test, labels_predict_r))
+print(grid_search.best_estimator_.named_steps['reduce_dim'].n_components)
 # Task 6: Dump your classifier, dataset, and features_list so anyone can
 # check your results. You do not need to change anything below, but make sure
 # that the version of poi_id.py that you submit can be run on its own and
 # generates the necessary .pkl files for validating your results.
 
-dump_classifier_and_data(clf_d, my_dataset, features_list)
+dump_classifier_and_data(grid_search.best_estimator_, my_dataset, features_list)
